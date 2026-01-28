@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>COVID-19 Cases in the US</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.8.1/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.8.1/mapbox-gl.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+
+        /* Title styling */
+        #title {
+            position: absolute;
+            top: 0;
+            left: 0;
+            margin-top: 20px;
+            margin-left: 20px;
+            font-family: 'Open Sans', sans-serif;
+            font-size: 25pt;
+            color: white;
+            z-index: 1;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+        }
+
+        /* Subtitle styling */
+        #subtitle {
+            position: absolute;
+            top: 0;
+            left: 0;
+            margin-top: 70px;
+            margin-left: 20px;
+            font-family: 'Open Sans', sans-serif;
+            font-size: 15pt;
+            color: white;
+            z-index: 1;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.7);
+        }
+
+        /* Description box */
+        #description {
+            position: absolute;
+            top: 120px;
+            left: 20px;
+            width: 300px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Open Sans', sans-serif;
+            font-size: 11pt;
+            line-height: 1.5;
+            z-index: 1;
+        }
+
+        /* Legend styling */
+        #legend {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 150px;
+            background: #fff;
+            margin-right: 20px;
+            margin-bottom: 40px;
+            padding: 10px 20px 10px 10px;
+            border-radius: 3px;
+            text-align: center;
+            font-family: 'Open Sans', sans-serif;
+        }
+
+        .break {
+            position: relative;
+            margin: 0px;
+            padding: 0px;
+        }
+
+        .dot {
+            display: inline-block;
+            margin-top: 5px;
+            border-radius: 50%;
+            opacity: 0.6;
+        }
+
+        .dot-label {
+            position: absolute;
+            top: 0;
+            right: 0;
+            font-style: italic;
+        }
+
+        /* Data sources box */
+        #sources {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            margin-left: 20px;
+            margin-bottom: 40px;
+            padding: 10px 15px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 3px;
+            font-family: 'Open Sans', sans-serif;
+            font-size: 10pt;
+        }
+
+        a {
+            color: black;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    
+    <!-- Title -->
+    <div id="title">COVID-19 Cases in the US</div>
+    
+    <!-- Subtitle -->
+    <div id="subtitle">Total Cases by County (2020)</div>
+    
+    <!-- Description -->
+    <div id="description">
+        <strong>About this map:</strong><br>
+        This proportional symbol map displays total COVID-19 cases across US counties in 2020. 
+        Larger and darker circles indicate counties with higher case counts. 
+        Click on any circle to see exact case numbers.
+    </div>
+    
+    <!-- Legend -->
+    <div id="legend"></div>
+    
+    <!-- Data Sources -->
+    <div id="sources">
+        <strong>Data Sources:</strong><br>
+        COVID-19 Data: <a href="https://github.com/nytimes/covid-19-data" target="_blank">NY Times</a><br>
+        Boundaries: <a href="https://www.census.gov/" target="_blank">US Census Bureau</a><br>
+        Map Author: Tinna Mokaramanee
+    </div>
+
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1IjoidGlubmFtIiwiYSI6ImNtaDI4djdsYTJ3dW8ybXE0M3g0OGpwdXkifQ.52zB7C-sGgsdU1t-EWdHnw';
+
+
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/dark-v10', 
+            zoom: 4, 
+            center: [-98, 38.5], 
+            projection: 'albers'
+        });
+
+        const grades = [1, 1000, 10000, 50000, 200000];
+        const colors = ['#ffffb2', '#fecc5c', '#fd8d3c', '#f03b20', '#bd0026'];
+        const radii = [2, 5, 10, 15, 22];
+
+        map.on('load', () => {
+            fetch('assets/us-covid-2020-counts.json')
+                .then(response => response.json())
+                .then(data => {
+                    const cases = data.features.map(f => f.properties.cases);
+                    console.log('=== CASES DATA ===');
+                    console.log('Min cases:', Math.min(...cases));
+                    console.log('Max cases:', Math.max(...cases));
+                    console.log('Average cases:', (cases.reduce((a,b) => a+b) / cases.length).toFixed(0));
+                });
+            map.addSource('covid-cases', {
+                type: 'geojson',
+                data: 'assets/us-covid-2020-counts.json'
+            });
+
+            map.addLayer({
+                'id': 'covid-cases-point',
+                'type': 'circle',
+                'source': 'covid-cases',
+                'paint': {
+                    'circle-radius': {
+                        'property': 'cases',
+                        'stops': [
+                            [grades[0], radii[0]],
+                            [grades[1], radii[1]],
+                            [grades[2], radii[2]],
+                            [grades[3], radii[3]]
+                        ]
+                    },
+                    'circle-color': {
+                        'property': 'cases',
+                        'stops': [
+                            [grades[0], colors[0]],
+                            [grades[1], colors[1]],
+                            [grades[2], colors[2]],
+                            [grades[3], colors[3]]
+                        ]
+                    },
+                    'circle-stroke-color': 'white',
+                    'circle-stroke-width': 1,
+                    'circle-opacity': 0.6
+                }
+            });
+
+            // click on circle to view case count
+            map.on('click', 'covid-cases-point', (event) => {
+                new mapboxgl.Popup()
+                    .setLngLat(event.features[0].geometry.coordinates)
+                    .setHTML(`
+                        <strong>${event.features[0].properties.county} County, ${event.features[0].properties.state}</strong><br>
+                        <strong>Total Cases:</strong> ${event.features[0].properties.cases.toLocaleString()}<br>
+
+                    `)
+                    .addTo(map);
+            });
+
+            // cursor on hover
+            map.on('mouseenter', 'covid-cases-point', () => {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+
+            map.on('mouseleave', 'covid-cases-point', () => {
+                map.getCanvas().style.cursor = '';
+            });
+        });
+
+        const legend = document.getElementById('legend');
+        const labels = ['<strong>Total Cases</strong>'];
+        
+        for (let i = 0; i < grades.length; i++) {
+            const vbreak = grades[i];
+            const dot_radius = 2 * radii[i];
+            
+            labels.push(
+                '<p class="break"><i class="dot" style="background:' + colors[i] + 
+                '; width: ' + dot_radius + 'px; height: ' + dot_radius + 
+                'px; "></i> <span class="dot-label" style="top: ' + dot_radius / 2 + 
+                'px;">' + vbreak.toLocaleString() + '</span></p>'
+            );
+        }
+
+        legend.innerHTML = labels.join('');
+    </script>
+</body>
+</html>
